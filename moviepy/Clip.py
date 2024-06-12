@@ -10,6 +10,7 @@ import numpy as np
 import proglog
 from tqdm import tqdm
 
+from moviepy.tools import load_to_cpu
 from moviepy.decorators import (apply_to_audio, apply_to_mask,
                                 convert_to_seconds, outplace,
                                 requires_duration, use_clip_fps_by_default)
@@ -470,6 +471,7 @@ class Clip:
         logger = proglog.default_bar_logger(logger)
         for t in logger.iter_bar(t=np.arange(0, self.duration, 1.0/fps)):
             frame = self.get_frame(t)
+            frame = load_to_cpu(frame)
             if (dtype is not None) and (frame.dtype != dtype):
                 frame = frame.astype(dtype)
             if with_times:

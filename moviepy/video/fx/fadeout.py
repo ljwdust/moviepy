@@ -1,6 +1,7 @@
 import numpy as np
 
 from moviepy.decorators import requires_duration
+from moviepy.tools import load_to_gpu
 
 
 @requires_duration
@@ -12,11 +13,12 @@ def fadeout(clip, duration, final_color=None):
     For cross-fading (progressive appearance or disappearance of a clip
     over another clip, see ``composition.crossfade``
     """
-    
+
     if final_color is None:
         final_color = 0 if clip.ismask else [0,0,0]
-    
+
     final_color = np.array(final_color)
+    final_color = load_to_gpu(final_color)
 
     def fl(gf, t):
         if (clip.duration-t)>=duration:

@@ -10,6 +10,8 @@ if os.name == 'nt':
     except ImportError:
         import _winreg as wr # py2k
 
+import torch
+DEVICE = "cuda:0" if torch.cuda.is_available() else "cpu"
 
 def try_cmd(cmd):
     try:

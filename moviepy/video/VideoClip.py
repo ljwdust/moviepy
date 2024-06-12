@@ -15,12 +15,12 @@ from imageio import imread, imsave
 
 from ..Clip import Clip
 from ..compat import DEVNULL, string_types
-from ..config import get_setting
+from ..config import get_setting, DEVICE
 from ..decorators import (add_mask_if_none, apply_to_mask,
                           convert_masks_to_RGB, convert_to_seconds, outplace,
                           requires_duration, use_clip_fps_by_default)
 from ..tools import (deprecated_version_of, extensions_dict, find_extension,
-                     is_string, subprocess_call)
+                     is_string, subprocess_call, load_to_gpu)
 from .io.ffmpeg_writer import ffmpeg_write_video
 from .io.gif_writers import (write_gif, write_gif_with_image_io,
                              write_gif_with_tempfiles)
@@ -257,13 +257,16 @@ class VideoClip(Clip):
         logger = proglog.default_bar_logger(logger)
 
         if codec is None:
-
-            try:
-                codec = extensions_dict[ext]['codec'][0]
-            except KeyError:
-                raise ValueError("MoviePy couldn't find the codec associated "
-                                 "with the filename. Provide the 'codec' "
-                                 "parameter in write_videofile.")
+            # 设置GPU编码器
+            if DEVICE != 'cpu':
+                codec = 'h264_nvenc'
+            else:
+                try:
+                    codec = extensions_dict[ext]['codec'][0]
+                except KeyError:
+                    raise ValueError("MoviePy couldn't find the codec associated "
+                                    "with the filename. Provide the 'codec' "
+                                    "parameter in write_videofile.")
 
         if audio_codec is None:
             if ext in ['ogv', 'webm']:
@@ -904,6 +907,13 @@ class ImageClip(VideoClip):
 
         # if the image was just a 2D mask, it should arrive here
         # unchanged
+
+        # 统一数据类型，加快速度，CPU同样会变快
+        if img.dtype.name == 'int64':
+            img = img.astype(np.uint8)
+        if img.dtype.name == 'float64':
+            img = img.astype(np.float32)
+        img = load_to_gpu(img)
         self.make_frame = lambda t: img
         self.size = img.shape[:2][::-1]
         self.img = img

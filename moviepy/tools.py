@@ -9,7 +9,36 @@ import warnings
 import proglog
 
 from .compat import DEVNULL
+from .config import DEVICE
 
+GPU_MODE = 'torch' # torch or cupy
+
+def load_to_gpu(data):
+    """载入GPU，non_blocking=True会快一点"""
+    if GPU_MODE == 'torch':
+        import torch
+        if not isinstance(data, torch.Tensor) and DEVICE != 'cpu':
+            data = torch.tensor(data).to(DEVICE, non_blocking=True)
+        return data
+    elif GPU_MODE == 'cupy':
+        import cupy as cp
+        if not isinstance(data, cp._core.core.ndarray) and DEVICE != 'cpu':
+            data = cp.asarray(data)
+        return data
+
+
+def load_to_cpu(data):
+    """数据从GPU传输到CPU，uint8传输更快"""
+    if GPU_MODE == 'torch':
+        import torch
+        if isinstance(data, torch.Tensor):
+            data = data.to(torch.uint8).to('cpu', non_blocking=True).numpy()
+        return data
+    elif GPU_MODE == 'cupy':
+        import cupy as cp
+        if isinstance(data, cp._core.core.ndarray):
+            data = data.astype('uint8').get()
+        return data
 
 
 def sys_write_flush(s):

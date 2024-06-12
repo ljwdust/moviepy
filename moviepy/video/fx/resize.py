@@ -1,56 +1,74 @@
+from moviepy.config import DEVICE
+
 resize_possible = True
 
-try:
-    # TRY USING OpenCV AS RESIZER
-    #raise ImportError #debugging
-    import cv2
-    import numpy as np
-    def resizer (pic, newsize):
-        lx, ly = int(newsize[0]), int(newsize[1])
-        if lx > pic.shape[1] or ly > pic.shape[0]:
-            # For upsizing use linear for good quality & decent speed
-            interpolation = cv2.INTER_LINEAR
-        else:
-            # For dowsizing use area to prevent aliasing
-            interpolation = cv2.INTER_AREA
-        return cv2.resize(+pic.astype('uint8'), (lx, ly),
-                          interpolation=interpolation)
+if DEVICE != "cpu":
+    # USING PyTorch AS RESIZER
+    import torchvision.transforms.functional as F
+    from torchvision.transforms import InterpolationMode
+    def resizer(pic, newsize):
+        newsize = (int(newsize[1]), int(newsize[0]))
+        if len(pic.shape) == 2:
+            pic = pic[..., None]
+        pic = pic.transpose(1, 2).transpose(0, 1)
+        new_pic = F.resize(pic, newsize, InterpolationMode.BICUBIC, antialias=True)
+        new_pic = new_pic.transpose(0, 1).transpose(1, 2).squeeze()
+        return new_pic
 
-    resizer.origin = "cv2"
-                
-except ImportError:
-    
-    
+    resizer.origin = "torch"
+
+else:
     try:
-        # TRY USING PIL/PILLOW AS RESIZER
-        from PIL import Image
+        # TRY USING OpenCV AS RESIZER
+        #raise ImportError #debugging
+        import cv2
         import numpy as np
-        def resizer(pic, newsize):
-            newsize = list(map(int, newsize))[::-1]
-            shape = pic.shape
-            if len(shape)==3:
-                newshape = (newsize[0],newsize[1], shape[2] )
+        def resizer (pic, newsize):
+            lx, ly = int(newsize[0]), int(newsize[1])
+            if lx > pic.shape[1] or ly > pic.shape[0]:
+                # For upsizing use linear for good quality & decent speed
+                interpolation = cv2.INTER_LINEAR
             else:
-                newshape = (newsize[0],newsize[1])
-                
-            pilim = Image.fromarray(pic)
-            resized_pil = pilim.resize(newsize[::-1], Image.ANTIALIAS)
-            #arr = np.fromstring(resized_pil.tostring(), dtype='uint8')
-            #arr.reshape(newshape)
-            return np.array(resized_pil)
-            
-        resizer.origin = "PIL"
-            
+                # For dowsizing use area to prevent aliasing
+                interpolation = cv2.INTER_AREA
+            return cv2.resize(+pic.astype('uint8'), (lx, ly),
+                            interpolation=interpolation)
+
+        resizer.origin = "cv2"
+                    
     except ImportError:
-        # TRY USING SCIPY AS RESIZER
+        
+        
         try:
-            from scipy.misc import imresize
-            resizer = lambda pic, newsize : imresize(pic,
-                                            map(int, newsize[::-1]))
-            resizer.origin = "Scipy"
-                                               
+            # TRY USING PIL/PILLOW AS RESIZER
+            from PIL import Image
+            import numpy as np
+            def resizer(pic, newsize):
+                newsize = list(map(int, newsize))[::-1]
+                shape = pic.shape
+                if len(shape)==3:
+                    newshape = (newsize[0],newsize[1], shape[2] )
+                else:
+                    newshape = (newsize[0],newsize[1])
+                    
+                pilim = Image.fromarray(pic)
+                resized_pil = pilim.resize(newsize[::-1], Image.ANTIALIAS)
+                #arr = np.fromstring(resized_pil.tostring(), dtype='uint8')
+                #arr.reshape(newshape)
+                return np.array(resized_pil)
+                
+            resizer.origin = "PIL"
+                
         except ImportError:
-            resize_possible = False
+            # TRY USING SCIPY AS RESIZER
+            try:
+                from scipy.misc import imresize
+                resizer = lambda pic, newsize : imresize(pic,
+                                                map(int, newsize[::-1]))
+                resizer.origin = "Scipy"
+                                                
+            except ImportError:
+                resize_possible = False
             
         
         
@@ -144,10 +162,10 @@ def resize(clip, newsize=None, height=None, width=None, apply_to_mask=True):
     # From here, the resizing is constant (not a function of time), size=newsize
 
     if clip.ismask:
-        fl = lambda pic: 1.0*resizer((255 * pic).astype('uint8'), newsize)/255.0
+        fl = lambda pic: 1.0*resizer((255 * pic), newsize)/255.0
             
     else:
-        fl = lambda pic: resizer(pic.astype('uint8'), newsize)
+        fl = lambda pic: resizer(pic, newsize)
 
     newclip = clip.fl_image(fl)
 

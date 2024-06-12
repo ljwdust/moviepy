@@ -15,12 +15,9 @@ import numpy as np
 
 from moviepy.compat import DEVNULL, PY3
 from moviepy.config import get_setting  # ffmpeg, ffmpeg.exe, etc...
-from moviepy.tools import cvsecs
+from moviepy.tools import cvsecs, load_to_gpu
 
 logging.captureWarnings(True)
-
-
-
 
 
 class FFMPEG_VideoReader:
@@ -86,6 +83,7 @@ class FFMPEG_VideoReader:
         else:
             i_arg = [ '-i', self.filename]
 
+        # 此处解码不能用GPU，这里vcodec用的rawvideo，改成别的就出错，因为加载视频帧是按照字节读取的
         cmd = ([get_setting("FFMPEG_BINARY")] + i_arg +
                ['-loglevel', 'error',
                 '-f', 'image2pipe',
@@ -101,6 +99,7 @@ class FFMPEG_VideoReader:
         if os.name == "nt":
             popen_params["creationflags"] = 0x08000000
 
+        print(f"Read CMD: {cmd}")
         self.proc = sp.Popen(cmd, **popen_params)
 
 
@@ -146,6 +145,7 @@ class FFMPEG_VideoReader:
             else:
                 result = np.fromstring(s, dtype='uint8')
             result.shape =(h, w, len(s)//(w*h)) # reshape((h, w, len(s)//(w*h)))
+            result = load_to_gpu(result)
             self.lastread = result
 
         return result
@@ -256,7 +256,7 @@ def ffmpeg_parse_infos(filename, print_infos=False, check_duration=True,
 
     proc = sp.Popen(cmd, **popen_params)
     (output, error) = proc.communicate()
-    infos = error.decode('utf8')
+    infos = error.decode('utf8', errors='replace')
 
     del proc
 

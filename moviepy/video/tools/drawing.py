@@ -4,6 +4,7 @@ methods that are difficult to do with the existing Python libraries.
 """
 
 import numpy as np
+import torch
 
 
 def blit(im1, im2, pos=None, mask=None, ismask=False):
@@ -35,19 +36,26 @@ def blit(im1, im2, pos=None, mask=None, ismask=False):
 
     blitted = im1[y1:y2, x1:x2]
 
-    new_im2 = +im2
+    if isinstance(im2, torch.Tensor):
+        new_im2 = im2.clone()
+    elif isinstance(im2, np.ndarray):
+        new_im2 = +im2
 
     if mask is None:
         new_im2[yp1:yp2, xp1:xp2] = blitted
     else:
+        if isinstance(mask, torch.Tensor):
+            mask = torch.clamp(mask, 0, 1)
         mask = mask[y1:y2, x1:x2]
         if len(im1.shape) == 3:
-            mask = np.dstack(3 * [mask])
+            if isinstance(mask, np.ndarray):
+                mask = np.dstack(3 * [mask])
+            elif isinstance(mask, torch.Tensor):
+                mask = mask.unsqueeze(-1).repeat(1, 1, 3)
         blit_region = new_im2[yp1:yp2, xp1:xp2]
-        new_im2[yp1:yp2, xp1:xp2] = (1.0 * mask * blitted + (1.0 - mask) * blit_region)
-    
-    return new_im2.astype('uint8') if (not ismask) else new_im2
+        new_im2[yp1:yp2, xp1:xp2] = mask * blitted + (1 - mask) * blit_region
 
+    return new_im2
 
 
 def color_gradient(size,p1,p2=None,vector=None, r=None, col1=0,col2=1.0,

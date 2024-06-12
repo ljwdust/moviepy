@@ -10,7 +10,7 @@ import numpy as np
 from proglog import proglog
 
 from moviepy.compat import DEVNULL, PY3
-from moviepy.config import get_setting
+from moviepy.config import get_setting, DEVICE
 
 
 class FFMPEG_VideoWriter:
@@ -77,8 +77,13 @@ class FFMPEG_VideoWriter:
         self.ext = self.filename.split(".")[-1]
 
         # order is important
-        cmd = [
-            get_setting("FFMPEG_BINARY"),
+        cmd = [get_setting("FFMPEG_BINARY")]
+        # 添加GPU参数
+        if DEVICE != 'cpu':
+            cmd.extend([
+                '-hwaccel', 'cuvid',
+            ])
+        cmd.extend([
             '-y',
             '-loglevel', 'error' if logfile == sp.PIPE else 'info',
             '-f', 'rawvideo',
@@ -87,7 +92,7 @@ class FFMPEG_VideoWriter:
             '-pix_fmt', 'rgba' if withmask else 'rgb24',
             '-r', '%.02f' % fps,
             '-an', '-i', '-'
-        ]
+        ])
         if audiofile is not None:
             cmd.extend([
                 '-i', audiofile,
@@ -107,7 +112,7 @@ class FFMPEG_VideoWriter:
         if threads is not None:
             cmd.extend(["-threads", str(threads)])
 
-        if ((codec == 'libx264') and
+        if ((codec == 'libx264' or codec == 'h264_nvenc') and
                 (size[0] % 2 == 0) and
                 (size[1] % 2 == 0)):
             cmd.extend([
@@ -126,6 +131,7 @@ class FFMPEG_VideoWriter:
         if os.name == "nt":
             popen_params["creationflags"] = 0x08000000  # CREATE_NO_WINDOW
 
+        print(f"Write CMD: {cmd}")
         self.proc = sp.Popen(cmd, **popen_params)
 
 

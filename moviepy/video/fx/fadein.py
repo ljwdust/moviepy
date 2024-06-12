@@ -1,4 +1,5 @@
 import numpy as np
+from moviepy.tools import load_to_gpu
 
 
 def fadein(clip, duration, initial_color=None):
@@ -12,9 +13,10 @@ def fadein(clip, duration, initial_color=None):
 
     if initial_color is None:
         initial_color = 0 if clip.ismask else [0,0,0]
-    
+
     initial_color = np.array(initial_color)
-    
+    initial_color = load_to_gpu(initial_color)
+
     def fl(gf, t):
         if t>=duration:
             return gf(t)
