@@ -46,6 +46,8 @@ def blit(im1, im2, pos=None, mask=None, ismask=False):
     else:
         if isinstance(mask, torch.Tensor):
             mask = torch.clamp(mask, 0, 1)
+        elif isinstance(im2, np.ndarray):
+            mask = np.clip(mask, 0, 1)
         mask = mask[y1:y2, x1:x2]
         if len(im1.shape) == 3:
             if isinstance(mask, np.ndarray):
